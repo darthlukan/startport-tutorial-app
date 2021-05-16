@@ -1,0 +1,16 @@
+syntax = "proto3";
+package darthlukan.starporttutorialapp.ibcdex;
+
+option go_package = "github.com/darthlukan/starport-tutorial-app/x/ibcdex/types";
+
+message IbcdexPacketData {
+    oneof packet {
+        NoData noData = 1;
+        // this line is used by starport scaffolding # ibc/packet/proto/field
+    }
+}
+
+message NoData {
+}
+
+// this line is used by starport scaffolding # ibc/packet/proto/message

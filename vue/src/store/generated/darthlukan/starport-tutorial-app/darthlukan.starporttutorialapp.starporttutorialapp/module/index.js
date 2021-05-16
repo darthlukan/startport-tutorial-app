@@ -2,12 +2,12 @@
 import { SigningStargateClient } from "@cosmjs/stargate";
 import { Registry } from "@cosmjs/proto-signing";
 import { Api } from "./rest";
-import { MsgCreatePost } from "./types/starporttutorialapp/tx";
 import { MsgUpdatePost } from "./types/starporttutorialapp/tx";
+import { MsgCreatePost } from "./types/starporttutorialapp/tx";
 import { MsgDeletePost } from "./types/starporttutorialapp/tx";
 const types = [
-    ["/darthlukan.starporttutorialapp.starporttutorialapp.MsgCreatePost", MsgCreatePost],
     ["/darthlukan.starporttutorialapp.starporttutorialapp.MsgUpdatePost", MsgUpdatePost],
+    ["/darthlukan.starporttutorialapp.starporttutorialapp.MsgCreatePost", MsgCreatePost],
     ["/darthlukan.starporttutorialapp.starporttutorialapp.MsgDeletePost", MsgDeletePost],
 ];
 const registry = new Registry(types);
@@ -22,8 +22,8 @@ const txClient = async (wallet, { addr: addr } = { addr: "http://localhost:26657
     const { address } = (await wallet.getAccounts())[0];
     return {
         signAndBroadcast: (msgs, { fee = defaultFee, memo = null }) => memo ? client.signAndBroadcast(address, msgs, fee, memo) : client.signAndBroadcast(address, msgs, fee),
-        msgCreatePost: (data) => ({ typeUrl: "/darthlukan.starporttutorialapp.starporttutorialapp.MsgCreatePost", value: data }),
         msgUpdatePost: (data) => ({ typeUrl: "/darthlukan.starporttutorialapp.starporttutorialapp.MsgUpdatePost", value: data }),
+        msgCreatePost: (data) => ({ typeUrl: "/darthlukan.starporttutorialapp.starporttutorialapp.MsgCreatePost", value: data }),
         msgDeletePost: (data) => ({ typeUrl: "/darthlukan.starporttutorialapp.starporttutorialapp.MsgDeletePost", value: data }),
     };
 };
