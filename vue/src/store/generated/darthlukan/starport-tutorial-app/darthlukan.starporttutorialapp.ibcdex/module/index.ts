@@ -4,15 +4,11 @@ import { StdFee } from "@cosmjs/launchpad";
 import { SigningStargateClient } from "@cosmjs/stargate";
 import { Registry, OfflineSigner, EncodeObject, DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
 import { Api } from "./rest";
-import { MsgCreatePost } from "./types/starporttutorialapp/tx";
-import { MsgUpdatePost } from "./types/starporttutorialapp/tx";
-import { MsgDeletePost } from "./types/starporttutorialapp/tx";
+import { MsgSendBuyOrder } from "./types/ibcdex/tx";
 
 
 const types = [
-  ["/darthlukan.starporttutorialapp.starporttutorialapp.MsgCreatePost", MsgCreatePost],
-  ["/darthlukan.starporttutorialapp.starporttutorialapp.MsgUpdatePost", MsgUpdatePost],
-  ["/darthlukan.starporttutorialapp.starporttutorialapp.MsgDeletePost", MsgDeletePost],
+  ["/darthlukan.starporttutorialapp.ibcdex.MsgSendBuyOrder", MsgSendBuyOrder],
   
 ];
 
@@ -40,9 +36,7 @@ const txClient = async (wallet: OfflineSigner, { addr: addr }: TxClientOptions =
 
   return {
     signAndBroadcast: (msgs: EncodeObject[], { fee=defaultFee, memo=null }: SignAndBroadcastOptions) => memo?client.signAndBroadcast(address, msgs, fee,memo):client.signAndBroadcast(address, msgs, fee),
-    msgCreatePost: (data: MsgCreatePost): EncodeObject => ({ typeUrl: "/darthlukan.starporttutorialapp.starporttutorialapp.MsgCreatePost", value: data }),
-    msgUpdatePost: (data: MsgUpdatePost): EncodeObject => ({ typeUrl: "/darthlukan.starporttutorialapp.starporttutorialapp.MsgUpdatePost", value: data }),
-    msgDeletePost: (data: MsgDeletePost): EncodeObject => ({ typeUrl: "/darthlukan.starporttutorialapp.starporttutorialapp.MsgDeletePost", value: data }),
+    msgSendBuyOrder: (data: MsgSendBuyOrder): EncodeObject => ({ typeUrl: "/darthlukan.starporttutorialapp.ibcdex.MsgSendBuyOrder", value: data }),
     
   };
 };
