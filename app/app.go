@@ -86,18 +86,47 @@ import (
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	// this line is used by starport scaffolding # stargate/app/moduleImport
+	"github.com/CosmWasm/wasmd/x/wasm"
+	wasmclient "github.com/CosmWasm/wasmd/x/wasm/client"
 	"github.com/darthlukan/starport-tutorial-app/x/ibcdex"
 	ibcdexkeeper "github.com/darthlukan/starport-tutorial-app/x/ibcdex/keeper"
 	ibcdextypes "github.com/darthlukan/starport-tutorial-app/x/ibcdex/types"
+	"strings"
 )
 
 const Name = "starporttutorialapp"
 
-// this line is used by starport scaffolding # stargate/wasm/app/enabledProposals
+var (
+	// If EnabledSpecificProposals is "", and this is "true", then enable all x/wasm proposals.
+	// If EnabledSpecificProposals is "", and this is not "true", then disable all x/wasm proposals.
+	ProposalsEnabled = "false"
+	// If set to non-empty string it must be comma-separated list of values that are all a subset
+	// of "EnableAllProposals" (takes precedence over ProposalsEnabled)
+	// https://github.com/CosmWasm/wasmd/blob/02a54d33ff2c064f3539ae12d75d027d9c665f05/x/wasm/internal/types/proposal.go#L28-L34
+	EnableSpecificProposals = ""
+)
+
+// GetEnabledProposals parses the ProposalsEnabled / EnableSpecificProposals values to
+// produce a list of enabled proposals to pass into wasmd app.
+func GetEnabledProposals() []wasm.ProposalType {
+	if EnableSpecificProposals == "" {
+		if ProposalsEnabled == "true" {
+			return wasm.EnableAllProposals
+		}
+		return wasm.DisableAllProposals
+	}
+	chunks := strings.Split(EnableSpecificProposals, ",")
+	proposals, err := wasm.ConvertToProposals(chunks)
+	if err != nil {
+		panic(err)
+	}
+	return proposals
+}
 
 func getGovProposalHandlers() []govclient.ProposalHandler {
 	var govProposalHandlers []govclient.ProposalHandler
 	// this line is used by starport scaffolding # stargate/app/govProposalHandlers
+	govProposalHandlers = wasmclient.ProposalHandlers
 
 	govProposalHandlers = append(govProposalHandlers,
 		paramsclient.ProposalHandler,
@@ -136,6 +165,7 @@ var (
 		vesting.AppModuleBasic{},
 		starporttutorialapp.AppModuleBasic{},
 		// this line is used by starport scaffolding # stargate/app/moduleBasic
+		wasm.AppModuleBasic{},
 		ibcdex.AppModuleBasic{},
 	)
 
@@ -204,6 +234,7 @@ type App struct {
 
 	starporttutorialappKeeper starporttutorialappkeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
+	wasmKeeper         wasm.Keeper
 	ScopedIbcdexKeeper capabilitykeeper.ScopedKeeper
 	ibcdexKeeper       ibcdexkeeper.Keeper
 
@@ -217,6 +248,7 @@ func New(
 	logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest bool, skipUpgradeHeights map[int64]bool,
 	homePath string, invCheckPeriod uint, encodingConfig appparams.EncodingConfig,
 	// this line is used by starport scaffolding # stargate/app/newArgument
+	enabledProposals []wasm.ProposalType,
 	appOpts servertypes.AppOptions, baseAppOptions ...func(*baseapp.BaseApp),
 ) *App {
 
@@ -236,6 +268,7 @@ func New(
 		evidencetypes.StoreKey, ibctransfertypes.StoreKey, capabilitytypes.StoreKey,
 		starporttutorialapptypes.StoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
+		wasm.StoreKey,
 		ibcdextypes.StoreKey,
 	)
 	tkeys := sdk.NewTransientStoreKeys(paramstypes.TStoreKey)
@@ -331,6 +364,37 @@ func New(
 	)
 
 	// this line is used by starport scaffolding # stargate/app/keeperDefinition
+	var wasmRouter = bApp.Router()
+	wasmDir := filepath.Join(homePath, "wasm")
+
+	wasmConfig, err := wasm.ReadWasmConfig(appOpts)
+	if err != nil {
+		panic("error while reading wasm config: " + err.Error())
+	}
+
+	// The last arguments can contain custom message handlers, and custom query handlers,
+	// if we want to allow any custom callbacks
+	supportedFeatures := "staking"
+	app.wasmKeeper = wasm.NewKeeper(
+		appCodec,
+		keys[wasm.StoreKey],
+		app.GetSubspace(wasm.ModuleName),
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.StakingKeeper,
+		app.DistrKeeper,
+		wasmRouter,
+		wasmDir,
+		wasmConfig,
+		supportedFeatures,
+		nil,
+		nil,
+	)
+
+	// The gov proposal types can be individually enabled
+	if len(enabledProposals) != 0 {
+		govRouter.AddRoute(wasm.RouterKey, wasm.NewWasmProposalHandler(app.wasmKeeper, enabledProposals))
+	}
 	scopedIbcdexKeeper := app.CapabilityKeeper.ScopeToModule(ibcdextypes.ModuleName)
 	app.ScopedIbcdexKeeper = scopedIbcdexKeeper
 	app.ibcdexKeeper = *ibcdexkeeper.NewKeeper(
@@ -386,6 +450,7 @@ func New(
 		transferModule,
 		starporttutorialapp.NewAppModule(appCodec, app.starporttutorialappKeeper),
 		// this line is used by starport scaffolding # stargate/app/appModule
+		wasm.NewAppModule(&app.wasmKeeper, app.StakingKeeper),
 		ibcdexModule,
 	)
 
@@ -421,6 +486,7 @@ func New(
 		ibctransfertypes.ModuleName,
 		starporttutorialapptypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
+		wasm.ModuleName,
 		ibcdextypes.ModuleName,
 	)
 
@@ -604,6 +670,7 @@ func initParamsKeeper(appCodec codec.BinaryMarshaler, legacyAmino *codec.LegacyA
 	paramsKeeper.Subspace(ibctransfertypes.ModuleName)
 	paramsKeeper.Subspace(ibchost.ModuleName)
 	// this line is used by starport scaffolding # stargate/app/paramSubspace
+	paramsKeeper.Subspace(wasm.ModuleName)
 	paramsKeeper.Subspace(ibcdextypes.ModuleName)
 
 	return paramsKeeper
